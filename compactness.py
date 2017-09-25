@@ -4,6 +4,10 @@ from shapely.geometry import Point
 import time
 from helper import haversine
 import pdb
+import os
+
+work_dir = '/Users/paullindseth/Downloads/'
+os.chdir(work_dir)
 
 def get_compactness(state_num, state_name, state_abbrev, map_type, national_districts):
 
@@ -12,6 +16,8 @@ def get_compactness(state_num, state_name, state_abbrev, map_type, national_dist
     print state_num + ' ' + state_abbrev + ' ' + state_name + ', ' + map_type
 
     state_vtds = gpd.read_file('tl_2012_%s_vtd10/' % state_num)
+
+    print "Number of vtds: " + str(len(state_vtds))
 
     dir_name = 'BlockAssign_ST' + state_num + '_' + state_abbrev
     block_vtd = pd.read_csv(dir_name + '/' + dir_name + '_VTD.txt', dtype=str)
@@ -45,6 +51,8 @@ def get_compactness(state_num, state_name, state_abbrev, map_type, national_dist
         state_districts['dist_cent'] = district_centroids
         state_districts['DISTRICT'] = pd.to_numeric(state_districts['DISTRICT'])
 
+        state_vtds['DISTRICT_y'] = pd.to_numeric(state_vtds['DISTRICT_y'])
+
     if map_type == 'ideal':
         ## block_solution = pd.read_csv(state_abbrev + '_Congress.csv', names=['BLOCKID', 'DIST_NUM'], dtype=str)
         block_solution = pd.read_csv(state_abbrev + '_Congress.csv', names=['BLOCKID', 'DISTRICT'], dtype=str)
@@ -73,26 +81,28 @@ def get_compactness(state_num, state_name, state_abbrev, map_type, national_dist
         ## state_vtds = state_vtds.merge(blockfile, on='GEOID10')
         state_vtds = state_vtds.merge(vtd_district, how='inner', left_on='GEOID10', right_on='VTD')
 
-        if state_num == '01':
-            for i in range(int(max(state_vtds['DIST_NUM']))):
+        state_vtds['DISTRICT_y'] = pd.to_numeric(state_vtds['DISTRICT_y']) + 1 # IMPORTANT THAT THE PLUS ONE IS HERE AND NOT IN ACTUAL
+
+        if state_num == '01' and False:
+            for i in range(int(max(state_vtds['DISTRICT_y']))):
                 print str(i)
-                state_vtds[state_vtds['DISTRICT_y'] == str(i+1)].to_file('alabama_dist_'+str(i)+'idealnew')
+                state_vtds[state_vtds['DISTRICT_y'] == (i+1)].to_file('alabama_dist_'+str(i)+'idealnew')
 
         # pdb.set_trace()
-
-        # need to be really careful with how strings are handled here
-        inclusion_matrix = [(state_vtds.DIST_NUM == str(dist_num)) for dist_num in
-                            range(0, int(max(block_vtd.DIST_NUM)))]  # using int on a max of a string is an abuse
 
         hard_version = True  # i.e. geographical centroid vs. average of centroids
 
         crs = {'init': 'epsg:5070'}
         if hard_version:
-            districts = state_vtds[['geometry', 'DIST_NUM']].to_crs(epsg=5070).groupby('DIST_NUM',
+            districts = state_vtds[['geometry', 'DISTRICT_y']].to_crs(epsg=5070).groupby('DISTRICT_y',
                                                                                        as_index=False).apply(
                 lambda df: reduce(lambda a, b: a.union(b), df.geometry))
             district_centroids = districts.apply(lambda poly: poly.centroid)
             district_centroids = gpd.GeoSeries(district_centroids, crs=crs).to_crs(epsg=4269)
+            state_districts = pd.DataFrame()
+            state_districts['dist_cent'] = district_centroids
+            state_districts['DISTRICT'] = district_centroids.index + 1
+        # this is currently not right (below)
         else:
             # need to use area times x/y coords to make this correct
             district_centroids = state_vtds[['geometry', 'DIST_NUM']].to_crs(epsg=5070).groupby('DIST_NUM',
@@ -120,8 +130,10 @@ def get_compactness(state_num, state_name, state_abbrev, map_type, national_dist
 
 
     # pdb.set_trace()
-    state_vtds['DISTRICT_y'] = pd.to_numeric(state_vtds['DISTRICT_y'])
+
     state_vtds = state_vtds.merge(state_districts[['DISTRICT', 'dist_cent']], how='inner', left_on='DISTRICT_y', right_on='DISTRICT')
+
+    print "Number of vtds after all merging: " + str(len(state_vtds))
 
     for i in range(len(state_vtds)):
         sum += state_vtds.iloc[i]['Total Population'] * haversine(state_vtds.iloc[i]['cent'].x, state_vtds.iloc[i]['cent'].y, state_vtds.iloc[i]['dist_cent'].x, state_vtds.iloc[i]['dist_cent'].y)

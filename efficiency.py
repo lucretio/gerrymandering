@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import sys
 
+# an attempt at Actual Efficiency using precinct files
 # 4 cases: general with Total, general without Total, general_precinct, and differentiated precinct files
 
 work_dir = '/Users/paullindseth/Downloads/'

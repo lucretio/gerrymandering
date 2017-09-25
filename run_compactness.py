@@ -10,7 +10,7 @@ states = pd.read_csv('District Scorecard - State Table.csv', dtype=str)
 
 result = pd.DataFrame()
 
-map_type = 'actual' # as opposed to 'actual'
+map_type = 'ideal' # as opposed to 'actual'
 
 national_districts = gpd.read_file('districtShapes/')
 
@@ -20,7 +20,7 @@ for index, row in states.iterrows():
     else:
         result = result.append({'Name': row['Name'], 'Compactness': get_compactness(row['ID'], row['Name'], row['State'], map_type, national_districts)}, ignore_index=True)
 
-result.to_csv('compactness_results_' + map_type + '_actual.csv')
+result.to_csv('compactness_results_' + map_type + '_new.csv')
 
 
 
